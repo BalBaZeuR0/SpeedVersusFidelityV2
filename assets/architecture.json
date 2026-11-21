@@ -1,0 +1,25 @@
+{
+  "title": "Analytic-to-PhysX transfer study",
+  "lang": "en",
+  "nodes": {
+    "scenario": {"label": "Scenario S1\n(start box, seed)", "pos": [0, 1], "kind": "data"},
+    "slots": {"label": "Shared slot loop\n(start, actuators, sensors,\nnavigation, reward, metrics)", "pos": [2.7, 1], "kind": "external", "h": 1.2, "w": 2.5},
+    "analytic": {"label": "Analytic plant\n(rigid body, spring legs,\npure torch)", "pos": [5.6, 0], "kind": "model", "h": 1.1},
+    "physx": {"label": "PhysX plant\n(Isaac Lab rigid body)", "pos": [5.6, 2], "kind": "external"},
+    "ppo": {"label": "PPO training\n(rsl_rl, 4,096 envs,\n600 iterations)", "pos": [8.4, 1], "kind": "process", "h": 1.1},
+    "policy": {"label": "Exported policy\n(10 seeds per simulator)", "pos": [11.1, 1], "kind": "output"},
+    "evaluate": {"label": "Fly each policy on 4,096\nheld-out starts in both", "pos": [11.1, 3.2], "kind": "process", "w": 2.5},
+    "compare": {"label": "Paired comparison\n(McNemar, Wilson, TOST)\n+ wall-clock time", "pos": [8.4, 3.2], "kind": "output", "h": 1.1}
+  },
+  "edges": [
+    ["scenario", "slots"],
+    ["slots", "analytic", "plant: analytic_rigid_body"],
+    ["slots", "physx", "plant: physx_site"],
+    ["analytic", "ppo"],
+    ["physx", "ppo"],
+    ["ppo", "policy"],
+    ["policy", "evaluate"],
+    ["evaluate", "compare"]
+  ],
+  "groups": [{"label": "noron (RTX 5060, Ubuntu)", "nodes": ["analytic", "physx", "ppo", "policy", "evaluate", "compare"], "label_at": "top-right"}]
+}

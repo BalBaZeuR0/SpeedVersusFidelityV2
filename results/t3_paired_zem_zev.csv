@@ -1,0 +1,5 @@
+starts,episodes,physx_success_rate,analytic_success_rate,same_outcome_code,only_analytic_succeeds,only_physx_succeeds
+"S1 box, seed 1000",4096,0.97705078125,0.976806640625,0.999755859375,0,1
+"wide range, seed 1000",4096,0.994384765625,0.994384765625,1.0,0,0
+"wide range, seed 1001",4096,0.99462890625,0.99462890625,1.0,0,0
+"wide range, seed 1002",4096,0.991455078125,0.991455078125,1.0,0,0
