@@ -29,8 +29,8 @@ Both run S1 (flat ground, true-state navigation, Apollo LM, `engine_rcs_pulse`, 
 | T4 | Parameter sweep (Latin hypercube): mass ±30 %, vehicle cases, altitude, heading, time step | Later |
 | T5 | PPO trained in A and in P, 5 seeds each; each tested in A and P on 4,096 held-out starts | **Done, 10 seeds** (2026-11-21, below): no transfer gap (+0.00 points, 95 % CI -0.33 to +0.29) |
 | T6 | Domain randomization in A, tested in P | Later |
-| T7 | Wall-clock time to 90 % success in P; also "A first, then P" (`resume_from`) | `train_ppo.py` writes `checkpoint_wall_clock.csv`; first-round gate runs have it |
-| T8 | Model ablation: spring legs → `metrics.end_at_first_contact=true` → no engine lag / jet limits → point mass | `end_at_first_contact` built and tested |
+| T7 | Wall-clock time to 90 % success in P; also "A first, then P" (`resume_from`) | **Done** (2026-11-21, below): 90 % in P after 362 s (P-trained) and 110 s (A-trained), 3.3×; "A first, then P" left out (no gap to close) |
+| T8 | Model ablation: spring legs → `metrics.end_at_first_contact=true` → no engine lag / jet limits → point mass | **b1-b3 done** (2026-11-22, below): transfer breaks with ideal actuators and with the point mass; b4-b5 (point mass with standard actuators, at once and lagged) running since 2026-11-23 |
 | T9 | All policies in P on the Apollo 17 terrain | Later (height maps must be downloaded on `noron`) |
 
 ## Decisions (user, 2026-11-20)
@@ -146,10 +146,129 @@ and `.txt` on `noron`.
   in it lose nothing in PhysX. The speed-up of training (2.9×) is below the environment speed-up
   at 4,096 envs (3.4×) because the PPO update does not get faster.
 
+## T8 design (2026-11-21)
+
+PPO is trained in ever simpler analytic models (seeds 0-4) and every policy is flown in full
+PhysX with the standard success rule. Step 0 is T5.
+
+| Step | Training model (all analytic) | Overrides |
+| --- | --- | --- |
+| b1_contact | spring-leg rigid body, episode ends at the first contact | `metrics.end_at_first_contact=true` |
+| b2_ideal | b1 + ideal actuators: no thrust lag, throttle slew limit, shutdown tail-off, jet minimum pulse or valve delay (throttle range, thrust and propellant use stay) | `+ actuators.ideal_response=true` |
+| b3_point_mass | point mass: thrust along the commanded direction at once (heading kept), no rotation dynamics, no legs, stops on the ground; ideal actuators; ends at contact | `plant=analytic_point_mass` + the two above |
+
+- Point-mass attitude: user decision 2026-11-21, option A (at once). A first-order lag of the
+  thrust direction (option B) is kept as an extra step if b3 breaks the transfer.
+- The Command carries jet duties, not the direction, so the PPO action adapter keeps its last
+  commanded thrust direction and the training wrapper hands it to an environment that asks for
+  it (`accepts_commanded_thrust_direction`). Only training does this; the point-mass plant
+  stops with an error in any other use. PhysX behaviour is unchanged (the T7 queue, started on
+  commit d0044b6, ran on f8123f6 from about 15:50; the PhysX path is the same).
+- Tests: `tests/unit/test_analytic_model_ablation.py` (8, CPU).
+
+## T7 results: checkpoints flown in PhysX (commit f8123f6, `noron`, done 2026-11-21 23:38)
+
+Every 25th checkpoint (0-575) of the 20 T5 trainings was flown in P on the same 4,096 held-out
+starts (480 evaluations, no warnings; iteration 600 is the T5 result). Time = learning wall clock
+of the first checkpoint at or above the threshold (`checkpoint_wall_clock.csv`); the 25-iteration
+grid is about 97 s in P and 33 s in A, so the times are quantized. Table:
+`runs/_analysis/export/t7_success_in_physx_by_checkpoint.csv`.
+
+| Success in P reached | P-trained (10 seeds) | A-trained (10 seeds) | Ratio P/A (bootstrap 95 % CI) | Welch p |
+| --- | --- | --- | --- | --- |
+| 50 % | 278 s (CI 218-337), iteration 75 | 97 s (85-110), iteration 78 | 2.85 (2.32-3.51) | 6e-5 |
+| 90 % | 362 s (300-425), iteration 98 | 110 s (91-130), iteration 88 | 3.28 (2.68-4.00) | 4e-6 |
+| 95 % | 411 s (310-512), iteration 110 | 121 s (92-149), iteration 95 | 3.41 (2.58-4.49) | 8e-5 |
+
+- Reached by 10/10 seeds in both simulators at every threshold.
+- The A-trained policies are as good in P at every stage of training, not only at the end: per
+  iteration they reach the thresholds at about the same iteration (88 against 98 for 90 %), so the
+  wall-clock saving is the per-iteration speed-up. Median success in P at iteration 75: A 96.0 %,
+  P 80.4 %; from iteration 100 on both are within about 1 point (96-98 %).
+
+## T8 results: model ablation flown in PhysX (commit f8123f6, `noron`, done 2026-11-22 03:05)
+
+All 15 trainings reached 600 iterations (training success 97.8-99.9 %); each policy flew the same
+4,096 held-out starts in P. "Judged at first contact" counts `not_settled` as a landing (inside
+every limit at contact, still moving when the settle time ran out). Per seed with outcome shares:
+`runs/_analysis/export/t8_ablation_in_physx.csv`; script `runs/_analysis/t8_summary.py`.
+
+| Step (5 seeds) | Success in P, full rule | Judged at first contact | Main failures |
+| --- | --- | --- | --- |
+| T5 full analytic (seeds 0-4) | 97.8 % (CI 97.0-98.6) | 97.8 % | hard horizontal 1.3 % |
+| b1_contact | 88.2 % (76.7-99.8) | 97.5 % (96.7-98.4) | not settled 0.3-20.8 % |
+| b2_ideal | 55.8 % (35.9-75.8) | 77.1 % (67.0-87.3) | hard vertical 5-16 %, hard horizontal 5-14 %, not settled 6-58 % |
+| b3_point_mass | 0.0 % (all seeds) | 4.5 % | propellant depleted / out of bounds (seeds 0, 1, 3: 90-96 %), hard vertical (seed 2: 53 %) |
+
+- **b1: the loss is after contact, not at it.** The policy never saw a post-contact state, so it
+  throttles up at contact (trajectory: throttle 0.65 at first leg force) and hops; judged at the
+  first contact it is as good as T5 (97.5 against 97.8 %). The episode design, not the touchdown
+  physics, is what b1 changes.
+- **b2: actuator dynamics matter.** With instant throttle and jets the policy descends faster
+  (median contact speed 1.41 against 1.10 m/s for b1) and the lagging PhysX engine cannot brake in
+  time: hard landings rise from about 2 % to about 23 %. Judged at contact, -20 points against b1.
+- **b3: rotation dynamics are essential.** The policy expects its thrust direction at once; in P
+  the body lags, the tilt grows (to 15° in the example), it arrives at about 3.7 m/s, then throttles
+  to full at contact and flies off (out of bounds) or hovers until the propellant runs out.
+- Reading for RQ3: the analytic model must keep the actuator response and the rotation dynamics;
+  the leg model matters only because it lets the episode continue after contact.
+
+### T8 second part: point mass with standard actuators (approved 2026-11-23, done 13:43)
+
+b3 changed two things at once (ideal actuators and attitude at once). Two more steps, both with
+standard actuators and ending at contact, separate them (`scripts/noron/transfer_study_t8_lag.sh`,
+seeds 0-4, same PhysX evaluation):
+
+| Step | Training model | Overrides |
+| --- | --- | --- |
+| b4_point_mass_actuators | point mass, attitude at once | `plant=analytic_point_mass metrics.end_at_first_contact=true` |
+| b5_point_mass_lag | b4 + first-order lag of the thrust axis, tau = 1.3 s | `+ plant.attitude_time_constant_s=1.3` |
+
+- tau is measured, not chosen: the analytic rigid-body lander, hovering, flown by the classical
+  attitude controller (the one behind the policy's attitude commands), reaches 63.2 % of a 2 or
+  5 degree tilt step after 1.29 s (10-90 % rise 2.59 s at 5 degrees, close to a first-order lag
+  with tau 1.29 s, which gives 2.84 s); larger steps are slower (1.61 s at 10, 2.20 s at 15
+  degrees), so the lag is a little fast for large turns. `scripts/measure_attitude_time_constant.py`.
+- The lagged plant reports the turn rate as the body rate, so the policy sees a rate and the
+  touchdown metric a tilt rate. `attitude_time_constant_s: 0` (the default) is option A unchanged.
+- Tests: `tests/unit/test_analytic_model_ablation.py` (12, CPU).
+
+Results (commit 06861be, all 10 trainings reached 600 iterations, training success 97.7-99.5 %):
+
+| Step (5 seeds) | Success in P, full rule | Judged at first contact | Main failures (mean share) |
+| --- | --- | --- | --- |
+| b4_point_mass_actuators | 0.0 % (seeds 0-3: 0, seed 4: 0.1 %) | 4.8 % | propellant depleted 44.6 %, hard vertical 18.5 %, tilt at contact 12.8 %, hard horizontal 11.2 % |
+| b5_point_mass_lag | **90.7 % (CI 87.2-94.3)** | 90.8 % | tilt rate at contact 3.3 %, tilt at contact 3.2 %, hard horizontal 2.5 % |
+
+- **The attitude-at-once assumption is what breaks the point mass, not the ideal actuators:**
+  real actuators alone (b4) leave it at 0 %; adding a first-order attitude lag with the measured
+  time constant (b5) brings it to 90.7 %. b5 also beats b2 (rigid body, ideal actuators, 55.8 %).
+- b5 is still 7 points below the full model (97.8 %, seeds 0-4); its failures are tilt and tilt
+  rate at contact: the lag is a little fast for large turns (measured tau 1.6-2.2 s above 10
+  degrees) and has no angular momentum to overshoot.
+- b5 has no `not_settled` landings although its episodes also end at first contact (b1: 0.3-20.8 %).
+  Median contact values: 1.09 m/s vertical, 0.40 m/s horizontal, 2.8 degrees tilt (b1: 1.10, 0.56,
+  1.9).
+- Reading for RQ3, revised: the analytic model needs attitude dynamics that take time; a single
+  measured time constant recovers most of the transfer. Actuator response matters next (b2).
+
+## Scope (proposal 2026-11-21, after the user's RL framing)
+
+The paper answers "Can a landing policy trained in a fast analytic simulator land as well in full
+rigid-body physics, and how much wall-clock time does this save?" Core: T5 and T7; T8 as the
+third question (which simplification breaks the transfer); T6 only if T8 shows a gap; T1-T3 as
+short validation. Future work (user, 2026-11-23): T4 (parameter sweep) and T9 (terrain), which
+compare simulators rather than answer the RL question.
+
+## Target journal (user, 2026-11-23)
+
+Acta Astronautica (Elsevier; subscription route, no author fee); fallback Advances in Space
+Research. Write to the Elsevier template.
+
 ## Running on noron
 
 The Isaac environment `/media/noron/DISK02/isaac-lab-native/env_isaaclab` has an editable
-`lunarsim` install of the other clone (`~/Desktop/MEO/lunarsimv2`); it is not changed. Every
+`lunarsim` install of another clone of LunarSim v2; it is not changed. Every
 command sets `PYTHONPATH=<this clone>/src` so this clone's code is imported (checked
 2026-11-20). The DISK02 clone accepts pushes to its checked-out branch
 (`receive.denyCurrentBranch=updateInstead`). Jobs and their logs live in `runs/_jobs/`.

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Print the transfer-study summary (tests T2, T3, T5) from the result files in ``results/``.
+"""Print the transfer-study summary (tests T2, T3, T5, T7, T8) from the result files in ``results/``.
 
 Usage::
 
@@ -108,7 +108,75 @@ def summarize_agreement_and_speed() -> None:
             )
 
 
+def summarize_time_to_success_in_physx() -> None:
+    """Print test T7: learning wall-clock time until the checkpoints reach 50, 90 and 95 % success in PhysX.
+
+    Every 25th checkpoint of the 20 T5 trainings was flown in PhysX on the held-out starts; the time
+    is that of the first checkpoint at or above the threshold (a 25-iteration grid: about 97 s in
+    PhysX, 33 s in the analytic simulator).
+    """
+    checkpoints = pandas.read_csv(RESULTS / "t7_success_in_physx_by_checkpoint.csv")
+    checkpoints = checkpoints.sort_values(["trained_in", "seed", "iteration"])
+    print("T7: checkpoints flown in PhysX, learning time to reach a success rate in PhysX (10 seeds)")
+    for threshold in (0.5, 0.9, 0.95):
+        times = {}
+        for simulator in SIMULATORS:
+            rows = checkpoints[checkpoints.trained_in == simulator]
+            times[simulator] = numpy.array(
+                [group[group.success_in_physx >= threshold].learn_wall_clock_s.iloc[0] for _, group in rows.groupby("seed")]
+            )
+        generator = numpy.random.default_rng(0)
+        ratios = [
+            generator.choice(times["physx"], 10).mean() / generator.choice(times["analytic"], 10).mean()
+            for _ in range(10000)
+        ]
+        welch = stats.ttest_ind(times["physx"], times["analytic"], equal_var=False)
+        print(
+            f"  {100 * threshold:3.0f} %: PhysX-trained {times['physx'].mean():4.0f} s, analytic-trained "
+            f"{times['analytic'].mean():4.0f} s, ratio {times['physx'].mean() / times['analytic'].mean():.2f} "
+            f"(bootstrap 95 % CI {numpy.percentile(ratios, 2.5):.2f} to {numpy.percentile(ratios, 97.5):.2f}), "
+            f"Welch p {format_p_value(welch.pvalue)}"
+        )
+
+
+ABLATION_STEPS = {
+    "b1_contact": "b1 episode ends at first contact",
+    "b2_ideal": "b2 b1 + ideal actuators",
+    "b3_point_mass": "b3 point mass, ideal actuators",
+    "b4_point_mass_actuators": "b4 point mass, real actuators",
+    "b5_point_mass_lag": "b5 point mass, 1.3 s attitude lag",
+}
+
+
+def short_interval(values: numpy.ndarray) -> str:
+    """Return the mean and the 95 % t interval over seeds, in percent, one decimal."""
+    mean = values.mean()
+    half_width = stats.t.ppf(0.975, len(values) - 1) * values.std(ddof=1) / numpy.sqrt(len(values))
+    low, high = max(0.0, mean - half_width), min(1.0, mean + half_width)  # a rate stays within 0-100 %
+    return f"{100 * mean:5.1f} % (95 % CI {100 * low:5.1f} to {100 * high:5.1f})"
+
+
+def summarize_ablation(success: pandas.DataFrame) -> None:
+    """Print test T8: PhysX success of policies trained in ever simpler analytic models (5 seeds each).
+
+    "Judged at first contact" counts a not_settled landing (inside every limit at contact, still
+    moving when the settle time ran out) as a success.
+    """
+    ablation = pandas.read_csv(RESULTS / "t8_ablation_in_physx.csv")
+    analytic_in_physx = success[(success.trained_in == "analytic") & (success.flown_in == "physx") & (success.seed < 5)]
+    full = analytic_in_physx.success_rate.to_numpy()
+    print("T8: trained in simpler analytic models, flown in PhysX (5 seeds); standard rule | judged at first contact")
+    print(f"  {'full analytic model (T5 seeds 0-4)':35s} {short_interval(full)} | {short_interval(full)}")
+    for step, name in ABLATION_STEPS.items():
+        rows = ablation[ablation.step == step]
+        standard, at_contact = rows.success.to_numpy(), rows.success_judged_at_first_contact.to_numpy()
+        print(f"  {name:35s} {short_interval(standard)} | {short_interval(at_contact)}")
+
+
 if __name__ == "__main__":
-    summarize_transfer(pandas.read_csv(RESULTS / "t5_success_by_seed.csv"))
+    t5_success = pandas.read_csv(RESULTS / "t5_success_by_seed.csv")
+    summarize_transfer(t5_success)
     summarize_training_time()
+    summarize_time_to_success_in_physx()
+    summarize_ablation(t5_success)
     summarize_agreement_and_speed()

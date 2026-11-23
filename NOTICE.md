@@ -11,11 +11,16 @@ Only files written for this study:
 
 - `src/lunarsim/slots/plant/analytic_rigid_body.py`, `configs/plant/analytic_rigid_body.yaml`:
   the analytic plant (a LunarSim v2 plant binding)
+- `src/lunarsim/slots/plant/analytic_point_mass.py`, `configs/plant/analytic_point_mass.yaml`:
+  the point-mass plant of the model ablation (attitude at once or with a first-order lag)
 - `src/lunarsim/env/simulator_choice.py`: picks the simulator from the command line
 - `src/lunarsim/tools/paired_simulator_comparison.py`: paired comparison of two runs
-- `scripts/noron/*.sh`, `scripts/plot_results.py`, `scripts/summarize_transfer_study.py`
+- `scripts/noron/*.sh`, `scripts/plot_results.py`, `scripts/summarize_transfer_study.py`,
+  `scripts/draw_method_figure.py`, `scripts/measure_attitude_time_constant.py` (the last one runs
+  inside LunarSim v2)
 - `docs/`: study notes (they link to LunarSim v2 notes that are not in this repository)
-- `results/`, `plots/`, `assets/`: exported results and figures
+- `results/`, `plots/`, `assets/`: exported results and figures. `plots/lander_in_physx.png` was
+  rendered with LunarSim v2's renderer from a recorded landing.
 
 `scripts/flowchart.py` is the diagram tool of the MTA Artificial Intelligence Center repository
 standard.
@@ -32,3 +37,7 @@ These study files follow LunarSim v2 code closely, so they stay with it:
   choice in `train_ppo.py`, `evaluate_agent.py` and `benchmark_environment.py`, `end_at_first_contact`
   and start heading in the touchdown metric, optional start-heading range in `terminal_box`, the
   heading-keeping attitude controller, the `compare-simulators` command and the plant registration
+- the model-ablation support in LunarSim v2 files: the ideal-actuator option of `engine_rcs_pulse`,
+  the commanded-thrust-direction channel (PPO action adapter, training wrapper, analytic
+  environment) and its tests (`tests/unit/test_analytic_model_ablation.py`)
+- the landing-recording script and the flat-ground option of the replay renderer
