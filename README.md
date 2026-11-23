@@ -186,9 +186,9 @@ SpeedVersusFidelityV2/
 ## Citation, license, contact
 
 ```bibtex
-@misc{ozturk2026speedversusfidelityv2,
+@misc{ozkurt2026speedversusfidelityv2,
   title  = {Training lunar landing policies in a fast analytic simulator: transfer to rigid-body physics and wall-clock savings},
-  author = {{\"O}zt{\"u}rk, Emir},
+  author = {{\"O}zkurt, Cem and Onay, Muhammed Emin and Tun{\c{c}}, Ey{\"u}p Altu{\u{g}} and K{\"u}{\c{c}}{\"u}kler, Ahmet Kutay and {\"O}zt{\"u}rk, Emir},
   year   = {2026},
   howpublished = {\url{https://github.com/BalBaZeuR0/SpeedVersusFidelityV2}}
 }
