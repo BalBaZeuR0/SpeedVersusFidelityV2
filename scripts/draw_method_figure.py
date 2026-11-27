@@ -20,6 +20,10 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+# Acta Astronautica asks for Arial, Times, Courier or Symbol (or a font that looks like them) in
+# figures; Liberation Sans has the metrics of Arial. Fonts are embedded as TrueType.
+matplotlib.rcParams.update({"font.family": ["Liberation Sans", "DejaVu Sans"], "pdf.fonttype": 42, "mathtext.fontset": "custom", "mathtext.rm": "Liberation Sans", "mathtext.it": "Liberation Sans:italic", "mathtext.bf": "Liberation Sans:bold"})
 from matplotlib.patches import Ellipse, FancyArrowPatch, FancyBboxPatch, Polygon, Rectangle
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -131,8 +135,8 @@ def draw_loop(axes) -> None:
     axes.set_xlim(0, 1)
     axes.set_ylim(0, 1)
     width = 0.70
-    box(axes, (0.55, 0.92), (width, 0.12), "PPO policy (MLP), 50 Hz\nthrottle + thrust-direction tilt (≤ 15°)", "white", LINE)
-    box(axes, (0.55, 0.74), (width, 0.12), "attitude controller (shared with ZEM/ZEV)\ntilt command → RCS jet duties", "white", LINE)
+    box(axes, (0.55, 0.92), (width, 0.12), "PPO policy (MLP), 10 Hz\nthrottle + thrust-direction tilt (≤ 15°)", "white", LINE)
+    box(axes, (0.55, 0.74), (width, 0.12), "attitude controller, 50 Hz\ntilt command → RCS jet duties", "white", LINE)
     box(axes, (0.55, 0.555), (width, 0.13), "actuators: engine lag, slew limit, tail-off;\nRCS minimum pulse and valve delay", "white", LINE)
     box(axes, (0.365, 0.315), (0.32, 0.21), "analytic plant\npure PyTorch, 200 Hz\n6-DOF rigid body,\nanalytic spring legs", "#fbe3d4", ANALYTIC, fontsize=9)
     box(axes, (0.735, 0.315), (0.32, 0.21), "PhysX plant\nIsaac Lab, 200 Hz\narticulation, legs on\nprismatic spring joints", "#dce9f8", PHYSX, fontsize=9)
@@ -156,7 +160,7 @@ def draw_checks(axes) -> None:
     axes.set_ylim(0, 1)
     height, y = 0.52, 0.62
     boxes = [
-        (0.115, 0.205, "Start (S1 box)\naltitude 5-50 m\n$v_z$ -6 to 0 m/s, $v_x$, $v_y$ ±2 m/s\ntilt 0-10°", FLIGHT_FILL, FLIGHT_EDGE),
+        (0.115, 0.205, "Start (uniform)\naltitude 5-50 m\n$v_z$ -6 to 0 m/s, $v_x$, $v_y$ ±2 m/s\ntilt 0-10°", FLIGHT_FILL, FLIGHT_EDGE),
         (0.355, 0.2, "Powered descent\npolicy flies until a\nfootpad force > 100 N", FLIGHT_FILL, FLIGHT_EDGE),
         (0.605, 0.225, "First contact\n(values one step before)\n$v_z$ ≤ 3.05 m/s, $v_h$ ≤ 1.22 m/s*\ntilt ≤ 6°, tilt rate ≤ 2°/s", CHECK_FILL, CHECK_EDGE),
         (0.865, 0.225, "Settle (≤ 10 s)\nspeed < 0.02 m/s and\nrate < 0.5°/s for 1 s;\nno tip-over, no body strike", CHECK_FILL, CHECK_EDGE),
@@ -167,7 +171,7 @@ def draw_checks(axes) -> None:
         arrow(axes, (x0 + w0 / 2 + 0.005, y), (x1 - w1 / 2 - 0.005, y))
     axes.text(0.865, 0.27, "→ success", ha="center", fontsize=10, color=CHECK_EDGE, fontweight="bold")
     axes.text(0.355, 0.24, "fails: out of bounds (300 m / 200 m),\npropellant depleted, time limit 90 s", ha="center", va="center", fontsize=8.8, color=NOTE)
-    axes.text(0.605, 0.24, "T8 ablation steps b1-b5 train with the\nepisode ending here (no settle)", ha="center", va="center", fontsize=8.8, color=NOTE)
+    axes.text(0.605, 0.24, "the simplified models of the ablation\nend the training episode here (no settle)", ha="center", va="center", fontsize=8.8, color=NOTE)
     axes.text(0.01, 0.05, "* above 2.13 m/s vertical the horizontal limit falls linearly to 0 at 3.05 m/s; limits from the LM landing-gear "
               "design envelope (NASA TN D-6850). Held-out evaluation: the same 4,096 starts for every policy.",
               fontsize=8.3, color=SECONDARY)

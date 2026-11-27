@@ -2,8 +2,9 @@
 
 This study runs inside **LunarSim v2**, an Isaac Lab lunar-landing simulator by Muhammed Emin Onay
 (GitHub [@MEO41](https://github.com/MEO41)), BSD 3-Clause License, used with the author's
-permission. LunarSim v2 is a private repository; **none of its code is included here.** The study
-branch started from LunarSim v2 commit `9c21e15`.
+permission. LunarSim v2 is public at <https://github.com/MEO41/lunarsimv2>; **none of its code is
+included here.** The study branch `analytic-simulator` there started from commit `9c21e15`; the
+results of this repository and of the paper were produced with its commit `60b1668`.
 
 ## What this repository contains
 
@@ -19,13 +20,15 @@ Only files written for this study:
   `scripts/draw_method_figure.py`, `scripts/measure_attitude_time_constant.py` (the last one runs
   inside LunarSim v2)
 - `docs/`: study notes (they link to LunarSim v2 notes that are not in this repository)
-- `results/`, `plots/`, `assets/`: exported results and figures. `plots/lander_in_physx.png` was
+- `policies/`: the final policy of each training of the study (`policy.pt`) with its run manifest
+- `results/`, `plots/`, `assets/`: exported results (including `results/per_start/`, one row per
+  held-out start for every final evaluation) and figures. `plots/lander_in_physx.png` was
   rendered with LunarSim v2's renderer from a recorded landing.
 
 `scripts/flowchart.py` is the diagram tool of the MTA Artificial Intelligence Center repository
 standard.
 
-## What is kept in the private LunarSim v2 study branch
+## What is only in the LunarSim v2 study branch
 
 These study files follow LunarSim v2 code closely, so they stay with it:
 
@@ -40,4 +43,7 @@ These study files follow LunarSim v2 code closely, so they stay with it:
 - the model-ablation support in LunarSim v2 files: the ideal-actuator option of `engine_rcs_pulse`,
   the commanded-thrust-direction channel (PPO action adapter, training wrapper, analytic
   environment) and its tests (`tests/unit/test_analytic_model_ablation.py`)
+- the policy-input options of the revision controls (body rate set to zero in training, body rate
+  hidden from the policy, previous action as an input): `policy_input_options.py` and its hooks in
+  the PPO agent, the training wrapper and `configs/agent/ppo_mlp.yaml`
 - the landing-recording script and the flat-ground option of the replay renderer

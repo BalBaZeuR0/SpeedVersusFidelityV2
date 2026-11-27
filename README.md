@@ -4,7 +4,7 @@
 
 PPO landing policies for an Apollo-class lunar module are trained in two simulators that share everything except the physics: a pure-torch analytic rigid-body model with spring legs, and PhysX rigid-body physics in Isaac Lab.
 Each policy is then flown in both simulators on the same 4,096 held-out starts, and a model ablation shows which simplifications of the analytic model break the transfer.
-This repository holds the analytic plants, the study scripts, the exported results and the figures; it replaces an earlier hopper study ([SpeedVersusFidelity](https://github.com/BalBaZeuR0/SpeedVersusFidelity)).
+This repository holds the analytic plants, the study scripts, the exported results, the 85 trained policies, the per-start outcomes of every final evaluation and the figures; it replaces an earlier hopper study ([SpeedVersusFidelity](https://github.com/BalBaZeuR0/SpeedVersusFidelity)).
 
 ![Success in PhysX during training and transfer success](assets/hero.png)
 
@@ -43,7 +43,7 @@ Over 10 seeds, policies trained in the analytic simulator reach 97.94 % in PhysX
 
 ### Result 2: 90 % success in PhysX after 110 s of training instead of 362 s
 
-Every 25th checkpoint of the 20 trainings was flown in PhysX on the held-out starts. Analytic-trained checkpoints reach 90 % success in PhysX after 110 s of learning, PhysX-trained ones after 362 s: 3.3× sooner (bootstrap 95 % CI 2.7 to 4.0; 10 of 10 seeds; 2.9× at 50 %, 3.4× at 95 %). Both reach the threshold at about the same PPO iteration (88 and 98), so the saving is the per-iteration speed-up; full training takes 798 s against 2,318 s. Times are those of the first checkpoint at or above the threshold, on a grid of about 33 s (analytic) and 97 s (PhysX).
+Every 25th checkpoint of the 20 trainings was flown in PhysX on the held-out starts. Analytic-trained checkpoints reach 90 % success in PhysX after 110 s of learning, PhysX-trained ones after 362 s: about 3× sooner (ratio of the means 3.3, bootstrap 95 % CI over seeds 2.7 to 4.0; 10 of 10 seeds; 2.9× at 50 %, 3.4× at 95 %). The checkpoint grid alone leaves the 90 % ratio between 2.42 and 4.63; the seed interval does not cover this quantisation. Both reach the threshold at about the same PPO iteration (88 and 98), so the saving is the per-iteration speed-up; full training takes 798 s against 2,318 s. Times are those of the first checkpoint at or above the threshold, on a grid of about 33 s (analytic) and 97 s (PhysX).
 
 ![Success in PhysX during training](plots/t7_success_in_physx.png)
 
@@ -67,7 +67,7 @@ With the PPO policy in the loop, the analytic simulator steps 1.6× faster than 
 
 - Python 3.10 or newer (checked with 3.12)
 - numpy, pandas, scipy, matplotlib (for the summary and the figures)
-- To rerun the simulations: LunarSim v2 (a private repository of its author, see `NOTICE.md`), Isaac Sim 6.0.1 with Isaac Lab, and an NVIDIA GPU
+- To rerun the simulations: LunarSim v2 ([MEO41/lunarsimv2](https://github.com/MEO41/lunarsimv2), branch `analytic-simulator`, commit `60b1668`; see `NOTICE.md`), Isaac Sim 6.0.1 with Isaac Lab, and an NVIDIA GPU
 
 ### Steps
 
@@ -127,7 +127,7 @@ T8: trained in simpler analytic models, flown in PhysX (5 seeds); standard rule 
 
 ### Rerun the study (needs LunarSim v2 and Isaac Lab)
 
-Copy `src/` and `configs/` into a LunarSim v2 checkout with the study branch, then on the GPU machine:
+The study branch `analytic-simulator` of LunarSim v2 (commit `60b1668`) already contains `src/`, `configs/` and `scripts/noron/` of this repository. Check it out, then on the GPU machine:
 
 ```bash
 bash scripts/noron/transfer_study_gate.sh            # one seed: train in both simulators, fly each policy in both
@@ -136,8 +136,21 @@ bash scripts/noron/transfer_study_after_gate.sh      # paired ZEM/ZEV flights (T
 bash scripts/noron/transfer_study_t7_checkpoints.sh  # every 25th checkpoint flown in PhysX (T7)
 bash scripts/noron/transfer_study_t8_ablation.sh     # model ablation b1-b3 (T8)
 bash scripts/noron/transfer_study_t8_lag.sh          # model ablation b4-b5 (T8)
+bash scripts/noron/transfer_study_revision_round1.sh # body-rate controls, tau sweep, 10 ms step (T9)
+bash scripts/noron/transfer_study_revision_round2.sh # rate hidden from the policy, previous action, refined PhysX (T10)
 python scripts/measure_attitude_time_constant.py --tilts 2 5 10 15   # the 1.3 s attitude lag of b5 (CPU)
 ```
+
+### Fly a trained policy
+
+Each folder in `policies/` holds the final policy of one training (`policy.pt`) and its `manifest.yaml` (command line, seeds, versions, resolved scenario). The held-out flights of the paper used the evaluation command recorded in the manifests of the evaluation runs, for example:
+
+```bash
+python scripts/evaluate_agent.py scenario=s1_terminal_truth agent=ppo_mlp num_envs=4096 \
+  seed=1000 episodes_per_env=1 logged_envs=256 agent.policy_path=policies/transfer_ppo_physx_seed0/policy.pt
+```
+
+(run inside the LunarSim v2 study branch; adding `plant=analytic_rigid_body` flies it in the analytic simulator). Its `episodes.parquet` holds one row per start; the tables of the paper's runs are in `results/per_start/`, named after the evaluation run.
 
 The scripts hold the paths of the study machine; change `REPOSITORY` and the Isaac environment path for another machine. The point-mass steps also need the study branch's changes to LunarSim v2 files (ideal-actuator option, commanded-direction channel; see `NOTICE.md`).
 
@@ -155,7 +168,7 @@ The scripts hold the paths of the study machine; change `REPOSITORY` and the Isa
 | `assets/architecture.png` | `python scripts/flowchart.py assets/architecture.json` |
 | `plots/lander_in_physx.png` | rendered with LunarSim v2 (`scripts/render_lander_image.py`) from a recorded PhysX landing; needs LunarSim v2 and Isaac Sim |
 
-The files in `results/` were exported from the training and evaluation runs (`episodes.parquet`, training logs, `checkpoint_wall_clock.csv`, `benchmark.jsonl`); the runs themselves are not in git.
+The files in `results/` were exported from the training and evaluation runs (`episodes.parquet`, training logs, `checkpoint_wall_clock.csv`, `benchmark.jsonl`). The final policies (`policies/`) and the per-start outcomes of every final evaluation (`results/per_start/`) are in git; the intermediate checkpoints and the recorded trajectories are not.
 
 ## Project structure
 
@@ -163,13 +176,15 @@ The files in `results/` were exported from the training and evaluation runs (`ep
 SpeedVersusFidelityV2/
 ├── assets/            # README images: hero.png, architecture.png (+ .json, .svg)
 ├── configs/plant/     # analytic_rigid_body.yaml, analytic_point_mass.yaml: model choices of the analytic plants
-├── docs/              # study notes: plan and results (T1-T9), analytic model description
+├── docs/              # study notes: plan and results (T1-T10), analytic model description
 ├── plots/             # result figures, method overview, lander picture
+├── policies/          # 85 final policies (policy.pt + manifest.yaml): 20 main trainings, T8, T9, T10
 ├── results/           # exported results: T5 success by seed, training curves, T7 checkpoints in PhysX,
-│   │                  #   T8 ablation, T2 throughput, T3 paired flights
-│   └── checkpoint_wall_clock/   # wall-clock time of every training checkpoint (20 runs)
+│   │                  #   T8 ablation, T2 throughput, T3 paired flights, T9/T10 revision controls in PhysX
+│   ├── checkpoint_wall_clock/   # wall-clock time of every training checkpoint (20 runs)
+│   └── per_start/     # one row per held-out start for each of the 135 final evaluations
 ├── scripts/
-│   ├── noron/         # job queues run on the GPU machine (gate, seeds, T2/T3, T7, T8)
+│   ├── noron/         # job queues run on the GPU machine (gate, seeds, T2/T3, T7, T8, T9, T10)
 │   ├── plot_results.py, summarize_transfer_study.py, draw_method_figure.py, flowchart.py
 │   └── measure_attitude_time_constant.py   # closed-loop tilt response of the rigid-body lander
 ├── src/lunarsim/      # files written for this study, at their LunarSim v2 paths
