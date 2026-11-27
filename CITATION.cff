@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software or data, please cite it as below."
+type: software
+title: "SpeedVersusFidelityV2: analytic-to-PhysX transfer of reinforcement-learning lunar landing policies (code, trained policies and results)"
+version: "1.0"
+date-released: "2026-11-27"
+license: BSD-3-Clause
+repository-code: "https://github.com/BalBaZeuR0/SpeedVersusFidelityV2"
+keywords:
+  - reinforcement learning
+  - lunar landing
+  - simulation fidelity
+  - sim-to-sim transfer
+  - Isaac Lab
+authors:
+  - family-names: "Özkurt"
+    given-names: "Cem"
+    orcid: "https://orcid.org/0000-0002-1251-7715"
+    affiliation: "Department of Data Science and Analytics, Faculty of Computer and Information Sciences, Sakarya University"
+  - family-names: "Onay"
+    given-names: "Muhammed Emin"
+    orcid: "https://orcid.org/0009-0000-0454-4986"
+    affiliation: "Department of Computer Engineering, Faculty of Computer and Information Sciences, Sakarya University"
+  - family-names: "Tunç"
+    given-names: "Eyüp Altuğ"
+    orcid: "https://orcid.org/0009-0007-5166-8077"
+    affiliation: "Department of Computer Engineering, Faculty of Computer and Information Sciences, Sakarya University"
+  - family-names: "Küçükler"
+    given-names: "Ahmet Kutay"
+    orcid: "https://orcid.org/0009-0007-0202-016X"
+    affiliation: "Department of Computer Engineering, Sakarya University of Applied Sciences"
+  - family-names: "Öztürk"
+    given-names: "Emir"
+    orcid: "https://orcid.org/0009-0002-0785-6891"
+    affiliation: "Department of Computer Engineering, Sakarya University of Applied Sciences"
